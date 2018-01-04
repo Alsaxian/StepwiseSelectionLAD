@@ -5,26 +5,54 @@
 #' output:
 #'    html_document:
 #'      toc: true
-#'      highlight: ##zenburn
+#'      theme: spacelab
+#'      highlight: zenburn
 #' ---
-#+ echo=FALSE, message=FALSE, results='hide'
+#+ echo=FALSE, message=FALSE, results='hide', warning=FALSE
 set.seed(11715490)
 library(usdm)
 library(glmnet)
 library(readxl)
 library(MASS)
 # library(tidyverse)
-dfSansObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/FW_groupe3.xls")
-dfAvecObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/FW_groupe3_obs.xls")
+dfSansObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/StepwiseSelectionLAD/FW_groupe3.xls")
+dfAvecObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/StepwiseSelectionLAD/FW_groupe3_obs.xls")
 names(dfSansObs)[1] <- "rowname"
 names(dfAvecObs)[1] <- "rowname"
 head(dfSansObs)
-head(dfAvecObs)
+
 dim(dfSansObs)
 dim(dfAvecObs)
-#' ## Foreword
+#' ## I. Introduction
+#' In this article we will present four common feature selection techniques in regression problems with the help of some 
+#' chemical reaction data. The data devide into two parts: the first dataset consists of 100 chemical substances with each
+#' having 50 numeric measurements, called descriptors. The second one consists of 25 chemical substances with the same
+#' measurements, apart from the fact that to each of them an additional numeric mark is given, that we will call response.
+#' The response occupies the first column of the second dataset, which looks like below
+#+ message=FALSE, warning=FALSE
+head(dfAvecObs, n = 5L)
+#' The objective of this article, is to predict the response using the 50 descriptors of the chemical substances
+#' of the second dataset. According to the project requirements we shall use linear regression models as a baseline, while
+#' we will try different feature selection methods to avoid overfitting and to keep our model simple to explain. The article 
+#' is organized as follows:   
+#'   
+#' We are interested first in finding a suitable ordinary linear regression model, which can possibly include interactions of second degree, using the
+#' substances of the second dataset. But with a number of variables much greater than that of observations, how can we ever
+#' run a regression model, even with the goal to result in fewer but persuassive variables? Our answer is to take advantage of
+#' the first dataset without response by doing an unsupervised feature selection on it prior to the regression. In the second paragragh of
+#' the article, we will apply principally an iterative selection procedure using VIF (Variation Inflation Factor) to the first dataset, 
+#' while providing 
+#' an alternative called sparse PCA before we discuss shortly its pros and contras. Now that we have fewer descriptors
+#' left, we are going to run in parapragh III an OLS regression model with these descriptors and their interactions of second 
+#' degree on the second dataset. In order to further avoid overfitting, a stepwise
+#' selection of variables with AIC and BIC criteria will needed. We then compare two slightly different linear regression models
+#' resulting from both information criteria and assess their goodness of fit. 
 #' 
-#' ## Unsupervised stepwise feature selection among main effects using VIF
+#' Second, we want to try some other feature selection variants than stepwise. In paragraph IV we will run a LAD regression model with 
+#' L-1 errors. In the last paragraph, we will add a Lasso and than an Elastic Net penalty term to the OLS regression model
+#' to make the final coefficients sparse. 
+#'   
+#' ## II. Unsupervised stepwise feature selection among main effects using VIF
 #' 
 VifEffetsPrincipaux <- vifstep(as.data.frame(dfSansObs[-1]), th = 10)
 VifEffetsPrincipaux
