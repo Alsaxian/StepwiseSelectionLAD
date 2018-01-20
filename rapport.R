@@ -19,14 +19,17 @@ library(ggfortify)
 library(glmnet)
 library(caret)
 library(gvlma)
+library(qpcR)
+library(L1pack)
 # library(car)
 # library(tidyverse)
+#+ echo = FALSE, results = "hide"
 dfSansObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/StepwiseSelectionLAD/FW_groupe3.xls")
 dfAvecObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/StepwiseSelectionLAD/FW_groupe3_obs.xls")
 names(dfSansObs)[1] <- "rowname"
 names(dfAvecObs)[1] <- "rowname"
 head(dfSansObs)
-
+#+ 
 dim(dfSansObs)
 dim(dfAvecObs)
 #' ## 0. Introduction
@@ -60,52 +63,37 @@ head(dfAvecObs, n = 5L)
 #' to make the final coefficients sparse. 
 #'   
 #' ## I. Unsupervised stepwise feature selection among main effects using VIF
-#+
+#+ echo = FALSE
 VifEffetsPrincipaux <- vifstep(as.data.frame(dfSansObs[-1]), th = 10)
 VifEffetsPrincipaux
 variablesReduites <- VifEffetsPrincipaux@results$Variables
 # VifEffetsPrincipaux@results
 #' 
 #' ## II. Supervised stepwise feature selection with interaction terms of degree 2
-#' On établit d'abord le modèle de départ et le modèle d'arrivé, entre lesquels on cherchera le modèle optimal. On accepte
-#' toutes les variables qui restent après l'opération de recherche de linéarités préliminaire, ainsi que leurs interactions
-#' de second degré.
 #'
 #' Cette fonction prend 3 indices en entrée, effectue avec ces 3 variables et 3 interactions 
 #' une sélection bidirectionnelle par AIC et 
-#' retourne la somme des résidus au carré du meilleur modèle (du plus petit AIC).
-#+
+#' retourne la PRESS du meilleur modèle (du plus petit AIC).
+#+ results = "hide"
 meilleurModele3Var <- function(i, j, k) {
   modeleComplet <- lm(reponse ~ .^2, 
                       data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(i, j, k)])])
   meilleurModele <- stepAIC(modeleComplet, direction = "both", trace = FALSE)
-  # print(paste(i, j, k))
-  termes <- meilleurModele$terms
-  attributes(termes) <- NULL
-  return (#list (formule = termes, RSS = 
-                  sum(meilleurModele$residuals^2))
+  press <- MPV::PRESS(meilleurModele)
+  return(press)
 }
-#' Cette fonction, même qu'avant, retourne en revanche le modèle au lieu de sa somme des résidus au carré.
-#+
+# meilleurModele3Var(2,3,5)
+#' Cette fonction, même qu'avant, retourne en revanche le modèle au lieu de sa PRESS.
+#+ results = "hide"
 meilleurModele3VarResume <- function(i, j, k) {
   modeleComplet <- lm(reponse ~ .^2, 
                       data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(i, j, k)])])
   meilleurModele <- stepAIC(modeleComplet, direction = "both", trace = FALSE)
 }
-
-# Fonction pour tester qqch, ne servant à rien
-# meilleurModele3Var(2, 3, 5)
-# Mise en place d'un cube pour stocker les AIC 
+#'
+#' Mise en place d'un cube pour stocker les AIC 
 RSS <- array(1000, dim = rep(length(variablesReduites), times = 3))
-
-# Ne servant à rien
-# lapply(1:(4-2), function(i) {
-#   lapply((i+1):(4-1), function(j) {
-#     lapply ((j+1):4, function(k) RSS[i, j, k] <<- meilleurModele3Var(i, j, k))
-#   })
-# })
-# RSS
-# which(min(RSS) == RSS, arr.ind = TRUE)
+#' Parcourir tous les 3-uplets possibles et stocker la PRESS du meilleur modèle de chaque 3-uplet
 #+ results = "hide"
 lapply(1:(length(variablesReduites) - 2), function(i) {
   lapply((i+1):(length(variablesReduites) - 1), function(j) {
@@ -113,42 +101,31 @@ lapply(1:(length(variablesReduites) - 2), function(i) {
   })
 })
 minimum <- min(RSS)
-#' Minimum global des Sommes des résidus au carré
+#' Minimum global de la PRESS
 #+ 
 minimum
 #' Quel modèle c'est ?
 #+
 which(minimum == RSS, arr.ind = TRUE)
-
-
-#' Ici il y a meill et meill2. meill c'est le résultat quand j'avais pris th=20 (25 variables restantes) et
-#' meill2 c'est le résultat de th=10 (20 variables restantes). On verra qu'on arrive au même resultat à la fin.
+#' Extraire ce modèle
 #+
-# meill <- meilleurModele3VarResume(9, 12, 22)
-# Extraire ce modèle
-meill2 <- meilleurModele3VarResume(7, 9, 18)
-# Revoyons son AIC
+meill2 <- meilleurModele3VarResume(8, 17, 18)
+#' Revoyons son AIC
+#+
 AIC(meill2)
-# Un bilan :
+#' Un bilan :
+#+
 summary(lm(meill2))
 # R2 pas mal ! 
-
-
-# AIC(meill)
-# summary(lm(meill)) # SAME !! 
-# Conclusion : que th=10 ou 20 à la première étape, on arrive au même résultat.
-
-
 #' Maintenant, on effectue une analyse sur le modèle de régression sélectionné.  
 #' Regardons d'abord les graphes ensemble :
 #+ 
-autoplot(meill2, which = 1:6) # Outliers : 12 (le pire), 11, 16). High leverage : 24
+autoplot(meill2, which = 1:6) # Outliers : 12 (le pire), 2, 17). High leverage : 24
 #' On fait un test pour être sûr des valeurs abberantes :
 #+ 
-car::outlierTest(meill2) # Effectivement, c'est le 12.
+car::outlierTest(meill2) # Effectivement, 12 a le plus grand résidu studentisé.
 #' En outres, est-ce que ce modèle passe toutes les hypothèses de la régression linéaire ?
-summary(gvlma(meill2)) # Non. Quatième hypothèse refusée, signifiant que la réponse (variable à expliquer) ne lui parait pas 
-# complètement continue. Ici c'est surtout le 24 qui pose de problème (Point de l'effet de levier élevé)
+summary(gvlma(meill2)) # Oui.
 
 # Enlever le 12 d'abord ?
 nouveau1 <- lm(meill2$terms, data = dfAvecObs[-12, ])
@@ -184,7 +161,11 @@ car::outlierTest(nouveau4)
 summary(gvlma(nouveau4))
 # Enlever 24puis 3 peut être une autre option.
 
-#' Méthode alternative : stepwise directement avec toutes les variables.
+#' ## III. Méthode alternative : stepwise directement avec toutes les variables.
+#' On établit d'abord le modèle de départ et le modèle d'arrivé, entre lesquels on cherchera le modèle optimal. On accepte
+#' toutes les variables qui restent après l'opération de recherche de linéarités préliminaire, ainsi que leurs interactions
+#' de second degré.
+#+ results = "hide"
 modeleDepart <- lm(reponse ~ 1, 
                    data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables))])
 modeleComplet <- lm(reponse ~ .^2, 
@@ -194,23 +175,23 @@ modeleComplet <- lm(reponse ~ .^2,
 #' pas possible, on peut alors choisir entre "forward" et "bidirectional". Du coup nous avons 4 combinaisons possible devant nous.  
 #'   
 #' Forward + AIC
-#+
-forwardAIC <- stepAIC(modeleDepart, direction = "forward", scope = list(upper = modeleComplet)) 
+#+ echo = FALSE
+forwardAIC <- stepAIC(modeleDepart, direction = "forward", scope = list(upper = modeleComplet), trace = FALSE) 
 #' AIC ends at `-Inf`, which means perfect fit. Not good. We don't take into account this result.  
 #'   
 #' Forward + BIC
-#+ results = "hide"
-forwardBIC <- stepAIC(modeleDepart, direction = "forward", scope = list(upper = modeleComplet), k = log(nrow(dfAvecObs))) 
+#+ echo = FALSE
+forwardBIC <- stepAIC(modeleDepart, direction = "forward", scope = list(upper = modeleComplet), k = log(nrow(dfAvecObs)), trace = FALSE) 
 #' On arrive à un bon résultat avec trois variables de degré 1 et une interaction de degré 2.  
 #'   
 #' Bidirectional AIC
-#+ resultes = "hide"
-bidirectionalAIC <- stepAIC(modeleDepart, direction = "both", scope = list(upper = modeleComplet), k = 2)
+#+ echo = FALSE
+bidirectionalAIC <- stepAIC(modeleDepart, direction = "both", scope = list(upper = modeleComplet), k = 2, trace = FALSE)
 #' On arrive à un bon résultat avec quatre variables de degré 1 et deux interactions de degré 2.  
 #'   
 #' Bidirectional BIC
-#+ results = "hide"  
-bidirectionalBIC <- stepAIC(modeleDepart, direction = "both", scope = list(upper = modeleComplet), k = log(nrow(dfAvecObs)))
+#+ echo = FALSE, results = "hide"
+bidirectionalBIC <- stepAIC(modeleDepart, direction = "both", scope = list(upper = modeleComplet), k = log(nrow(dfAvecObs)), trace = FALSE)
 #' Celui-ci done le même résultat que forward BIC.  
 #'   
 #' En fin du compte, on garde les deux modèles obtenus respectivement par forward BIC et bidirectional AIC. On peut ensuite
@@ -233,7 +214,7 @@ BIC(forwardBIC, bidirectionalAIC)
 #' by AIC or BIC, since the complete
 #' model will always give the best AIC and BIC but it's surely far from the best model, by all means.  
 #'   
-#' On peut encore chercher et virer les valeurs abberantes dans les modèles en regardant d'abord la distance de Cook
+#' On peut encore chercher et virer les valeurs abberantes dans les modèles en regardant les graphes et en faisant des tests
 #+
 autoplot(forwardBIC, which = 1:6, label.size = 3)
 summary(gvlma(forwardBIC))
@@ -241,111 +222,41 @@ car::outlierTest(forwardBIC)
 autoplot(bidirectionalAIC, which = 1:6, label.size = 3)
 summary(gvlma(bidirectionalAIC))
 car::outlierTest(bidirectionalAIC)
-#' Le deuxième modèle parait d'être assez bien déjà.
-#+
-# nouveauFit1 <- lm(forwardBIC$terms, data = dfAvecObs[-c(12, 9, 17), ])
-# nouveauFit2 <- lm(bidirectionalAIC$terms, data = dfAvecObs[-c(9, 12, 17), ])
-# summary(nouveauFit1)
-# summary(nouveauFit2)
-# 
-# #nouveauFit3 <- lm(bidirectionalAIC$terms, data = dfAvecObs[-24, ])
-# #summary(nouveauFit3)
-# #outlierTest(nouveauFit3)
-# 
-# #' On voit que le R carré du premier nouveau modèle sans l'observation 24 est inacceptable (50%). En plus, il ne
-# #' satisfait pas non plus à l'hypothèse de normalité, comme le montre le graphe suivant :
-# #+
-# autoplot(nouveauFit1,  which = 2, label.size = 3)
-# #' Donc on ne va considérer que le deuxième nouveau modèle.
-# #+
-# autoplot(nouveauFit2,  which = 1:6, label.size = 3)
-# par(oldPar)
-# 
-# gvNouveau2 <- gvlma(nouveauFit2)
-# summary(gvNouveau2)
-# 
-# car::outlierTest(nouveauFit2)
-#' Doner le PRESS (SSE)
 #' On voit cette fois-ci une qualité de régression acceptable. Donc le résultat : en enlevant l'observation 24, les variables
 #' qu'on garde pour la régression sont
 #'
 attr(bidirectionalAIC$terms, "term.labels")
-
-
-#' ## Least absolute deviation regression
+#' ## IV. Least absolute deviation regression
 #' 
-#+
-lad.fit <- lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(2, 3, 5)])])
-
-
+#+ echo = FALSE
+lad.fit <- L1pack::lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(variablesReduites)[c(2, 3, 5)])])
+lad.fit
+#' Matrice pour stocker les PRESS
+#+ echo = FALSE, results = "hide"
 RSS2 <- array(1000, dim = rep(length(variablesReduites), times = 3))
-#+ results = "hide"
+#' On parcourt tous les 3-uplets des variables explicatives et construit un modèle de LAD. Puis, en comparant la PRESS
+#' de tous ces modèles trouvés, on en prend celui qui a la plus petite PRESS.
+#+ echo = FALSE, results = "hide"
 lapply(1:(length(variablesReduites) - 2), function(i) {
   lapply((i+1):(length(variablesReduites) - 1), function(j) {
-    lapply ((j+1):length(variablesReduites), function(k) RSS2[i, j, k] <<- sum (residuals(
-      lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(i, j, k)])])
-    )^2) )
+    lapply ((j+1):length(variablesReduites), function(k) {
+      ladFit <- L1pack::lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(variablesReduites)[c(i, j, k)])])
+      press <- sum(sapply(1:25, function(l) {
+           (dfAvecObs[l, "reponse"] - predict(ladFit, data = dfAvecObs[-l, ]))^2
+      }))
+      RSS2[i, j, k] <<- press
+    })
   })
 })
-#'
-#+
+#' Cherchons la plus petite PRESS
+#+ echo = FALSE
 minimum2 <- min(RSS2)
 minimum2
+#' Quel modèle c'est ?
+#+ echo = FALSE
 which(minimum2 == RSS2, arr.ind = TRUE)
-
-lad.bestFit <- lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(7, 9, 18)])],
-                   test = TRUE)
+#' On étudie ce modèle
+#+ echo = FALSE
+lad.bestFit <- lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(8, 12, 18)])])
 summary(lad.bestFit)
-#' On arrive au mêm modèle qu'avant.
-#' 
 #' -------- FIN ----------
-
-
-
-
-
-
-#' Il y a 21 variables qui restent, ce n'est donc pas très intéressant vu le nombre d'observations.
-#'
-#' ## Lasso and Elastic Net
-#' 
-# #+
-# newdata <- dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables))]
-# matrice <- model.matrix(as.formula(reponse ~ .^2), newdata)
-# cv.out <- cv.glmnet(x = matrice, y = dfAvecObs$reponse, nfolds = 5)
-# lasso.fit <- glmnet(x = matrice, y = dfAvecObs$reponse, lambda = cv.out$lambda.min)
-# plot(cv.out)
-# #controle <- trainControl(method = "cv", number = 5)
-# #entraine <- train(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables))], 
-# #      metric = "RMSE", method = "lasso", tuneLength = 50, trControl = controle)
-# #entraine$bestTune$fraction
-# lasso.try1 <- glmnet(x = matrice, y = dfAvecObs$reponse, lambda = 1)
-# rownames(lasso.try1$beta)[summary(lasso.try1$beta)$i]
-# lasso.try2 <- glmnet(x = matrice, y = dfAvecObs$reponse, lambda = 2)
-# rownames(lasso.try2$beta)[summary(lasso.try2$beta)$i]
-# lmtry22 <- lm(reponse ~ descripteur6 * descripteur36 + 
-#                 descripteur30 * descripteur47, data = dfAvecObs[-24, ])
-# summary(lmtry22)
-# lasso.try3 <- glmnet(x = matrice, y = dfAvecObs$reponse, lambda = 3)
-# lmtry3 <- lm(reponse ~ descripteur61 : descripteur73 + descripteur64 : descripteur68, data = dfAvecObs)
-# summary(lmtry3)
-# lmtry2 <- lm(reponse ~ descripteur61 : descripteur73 + descripteur64 : descripteur68 + 
-#                descripteur30 : descripteur47, data = dfAvecObs)
-# summary(lmtry2)
-# plot(lmtry2)
-# enet.try10 <- glmnet(x = matrice, y = dfAvecObs$reponse, lambda = 5.5, alpha = 0.5)
-# rownames(enet.try10$beta)[summary(enet.try10$beta)$i]
-# lmtry10 <- lm(reponse ~ descripteur61 : descripteur73 + descripteur64 : descripteur68
-#               + descripteur44:descripteur68, data = dfAvecObs)
-# summary(lmtry10)
-# 
-# lmsimple <- lm(reponse ~ descripteur8, )
-# 
-# grille = exp(seq(-10, 1, by = 0.02))
-# cv.out.simple <- cv.glmnet(x = as.matrix(newdata[-1]), y = dfAvecObs$reponse, nfolds = 5, lambda = grille)
-# plot(cv.out.simple)
-# lasso.fit.simple <- glmnet(x = as.matrix(newdata[-1]), y = dfAvecObs$reponse, lambda = cv.out.simple$lambda.min)
-# rownames(lasso.fit.simple$beta)[summary(lasso.fit.simple$beta)$i]
-#' ## Semi-Supervised Regression
-#' 
-#' 
