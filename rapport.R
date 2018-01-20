@@ -29,9 +29,6 @@ dfAvecObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/Stepwi
 names(dfSansObs)[1] <- "rowname"
 names(dfAvecObs)[1] <- "rowname"
 head(dfSansObs)
-#+ 
-dim(dfSansObs)
-dim(dfAvecObs)
 #' ## 0. Introduction
 #' In this article we will present four common feature selection techniques in regression problems with the help of some 
 #' chemical reaction data. The data devide into two parts: the first dataset consists of 100 chemical substances with each
@@ -40,6 +37,8 @@ dim(dfAvecObs)
 #' The response occupies the second column of the second dataset, which looks like below
 #+ message=FALSE, warning=FALSE
 head(dfAvecObs, n = 5L)
+dim(dfSansObs) # dont une colonne est le nom d'observation
+dim(dfAvecObs) # dont une colonne est le nom d'observation
 #' Ici : faire une stat descriptive sur la variable à expliquer  
 #' The objective of this article, is to predict the response using the 50 descriptors of the chemical substances
 #' of the second dataset. According to the project requirements we shall use linear regression models as a baseline, while
@@ -228,9 +227,6 @@ car::outlierTest(bidirectionalAIC)
 attr(bidirectionalAIC$terms, "term.labels")
 #' ## IV. Least absolute deviation regression
 #' 
-#+ echo = FALSE
-lad.fit <- L1pack::lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(variablesReduites)[c(2, 3, 5)])])
-lad.fit
 #' Matrice pour stocker les PRESS
 #+ echo = FALSE, results = "hide"
 RSS2 <- array(1000, dim = rep(length(variablesReduites), times = 3))
@@ -249,7 +245,7 @@ lapply(1:(length(variablesReduites) - 2), function(i) {
   })
 })
 #' Cherchons la plus petite PRESS
-#+ echo = FALSE
+#+
 minimum2 <- min(RSS2)
 minimum2
 #' Quel modèle c'est ?
@@ -259,4 +255,8 @@ which(minimum2 == RSS2, arr.ind = TRUE)
 #+ echo = FALSE
 lad.bestFit <- lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(8, 12, 18)])])
 summary(lad.bestFit)
+plot(lad.bestFit, which = 1:2)
+lad.bestFit2 <- lad(reponse ~ .^2 - descripteur30:descripteur68, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(8, 12, 18)])])
+summary(lad.bestFit2)
+plot(lad.bestFit2, which = 1:2)
 #' -------- FIN ----------
