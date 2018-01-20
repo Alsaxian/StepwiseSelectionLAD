@@ -34,7 +34,7 @@ dim(dfAvecObs)
 #' chemical reaction data. The data devide into two parts: the first dataset consists of 100 chemical substances with each
 #' having 50 numeric measurements, called descriptors. The second one consists of 25 chemical substances with the same
 #' measurements, apart from the fact that to each of them an additional numeric mark is given, that we will call response.
-#' The response occupies the first column of the second dataset, which looks like below
+#' The response occupies the second column of the second dataset, which looks like below
 #+ message=FALSE, warning=FALSE
 head(dfAvecObs, n = 5L)
 #' Ici : faire une stat descriptive sur la variable à expliquer  
@@ -242,33 +242,33 @@ autoplot(bidirectionalAIC, which = 1:6, label.size = 3)
 summary(gvlma(bidirectionalAIC))
 car::outlierTest(bidirectionalAIC)
 #' Le deuxième modèle parait d'être assez bien déjà.
-#+ 
-#' nouveauFit1 <- lm(forwardBIC$terms, data = dfAvecObs[-c(12, 9, 17), ])
-#' nouveauFit2 <- lm(bidirectionalAIC$terms, data = dfAvecObs[-c(9, 12, 17), ])
-#' summary(nouveauFit1)
-#' summary(nouveauFit2)
-#' 
-#' #nouveauFit3 <- lm(bidirectionalAIC$terms, data = dfAvecObs[-24, ])
-#' #summary(nouveauFit3)
-#' #outlierTest(nouveauFit3)
-#' 
-#' #' On voit que le R carré du premier nouveau modèle sans l'observation 24 est inacceptable (50%). En plus, il ne  
-#' #' satisfait pas non plus à l'hypothèse de normalité, comme le montre le graphe suivant : 
-#' #+
-#' autoplot(nouveauFit1,  which = 2, label.size = 3)
-#' #' Donc on ne va considérer que le deuxième nouveau modèle.
-#' #+
-#' autoplot(nouveauFit2,  which = 1:6, label.size = 3)
-#' par(oldPar)
-#' 
-#' gvNouveau2 <- gvlma(nouveauFit2)
-#' summary(gvNouveau2)
-#' 
-#' car::outlierTest(nouveauFit2)
+#+
+# nouveauFit1 <- lm(forwardBIC$terms, data = dfAvecObs[-c(12, 9, 17), ])
+# nouveauFit2 <- lm(bidirectionalAIC$terms, data = dfAvecObs[-c(9, 12, 17), ])
+# summary(nouveauFit1)
+# summary(nouveauFit2)
+# 
+# #nouveauFit3 <- lm(bidirectionalAIC$terms, data = dfAvecObs[-24, ])
+# #summary(nouveauFit3)
+# #outlierTest(nouveauFit3)
+# 
+# #' On voit que le R carré du premier nouveau modèle sans l'observation 24 est inacceptable (50%). En plus, il ne
+# #' satisfait pas non plus à l'hypothèse de normalité, comme le montre le graphe suivant :
+# #+
+# autoplot(nouveauFit1,  which = 2, label.size = 3)
+# #' Donc on ne va considérer que le deuxième nouveau modèle.
+# #+
+# autoplot(nouveauFit2,  which = 1:6, label.size = 3)
+# par(oldPar)
+# 
+# gvNouveau2 <- gvlma(nouveauFit2)
+# summary(gvNouveau2)
+# 
+# car::outlierTest(nouveauFit2)
 #' Doner le PRESS (SSE)
 #' On voit cette fois-ci une qualité de régression acceptable. Donc le résultat : en enlevant l'observation 24, les variables
 #' qu'on garde pour la régression sont
-#+
+#'
 attr(bidirectionalAIC$terms, "term.labels")
 
 
@@ -279,6 +279,7 @@ lad.fit <- lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffe
 
 
 RSS2 <- array(1000, dim = rep(length(variablesReduites), times = 3))
+#+ results = "hide"
 lapply(1:(length(variablesReduites) - 2), function(i) {
   lapply((i+1):(length(variablesReduites) - 1), function(j) {
     lapply ((j+1):length(variablesReduites), function(k) RSS2[i, j, k] <<- sum (residuals(
@@ -286,6 +287,8 @@ lapply(1:(length(variablesReduites) - 2), function(i) {
     )^2) )
   })
 })
+#'
+#+
 minimum2 <- min(RSS2)
 minimum2
 which(minimum2 == RSS2, arr.ind = TRUE)
