@@ -68,7 +68,7 @@ VifEffetsPrincipaux
 variablesReduites <- VifEffetsPrincipaux@results$Variables
 # VifEffetsPrincipaux@results
 #' 
-#' ## II. Supervised stepwise feature selection with interaction terms of degree 2
+#' ## II. Supervised stepwise feature selection with interaction terms of degree 2 (3 main effects at most)
 #'
 #' Cette fonction prend 3 indices en entrée, effectue avec ces 3 variables et 3 interactions 
 #' une sélection bidirectionnelle par AIC et 
@@ -81,7 +81,6 @@ meilleurModele3Var <- function(i, j, k) {
   press <- MPV::PRESS(meilleurModele)
   return(press)
 }
-# meilleurModele3Var(2,3,5)
 #' Cette fonction, même qu'avant, retourne en revanche le modèle au lieu de sa PRESS.
 #+ results = "hide"
 meilleurModele3VarResume <- function(i, j, k) {
@@ -112,10 +111,6 @@ meill2 <- meilleurModele3VarResume(8, 17, 18)
 #' Revoyons son AIC
 #+
 AIC(meill2)
-#' Un bilan :
-#+
-summary(lm(meill2))
-# R2 pas mal ! 
 #' Maintenant, on effectue une analyse sur le modèle de régression sélectionné.  
 #' Regardons d'abord les graphes ensemble :
 #+ 
@@ -124,7 +119,7 @@ autoplot(meill2, which = 1:6) # Outliers : 12 (le pire), 2, 17). High leverage :
 #+ 
 car::outlierTest(meill2) # Effectivement, 12 a le plus grand résidu studentisé.
 #' En outres, est-ce que ce modèle passe toutes les hypothèses de la régression linéaire ?
-summary(gvlma(meill2)) # Oui.
+summary(gvlma(meill2)) # Oui. En outre, R carré pas mal.
 
 # Enlever le 12 d'abord ?
 nouveau1 <- lm(meill2$terms, data = dfAvecObs[-12, ])
@@ -134,7 +129,8 @@ car::outlierTest(nouveau1)
 summary(gvlma(nouveau1))
 
 
-nouveau2 <- lm(meill2$terms, data = dfAvecObs[-c(3, 12), ])
+nouveau2 <- lm(meill2$terms, data = dfAvecObs[-c(2, 12), ])
+
 summary(nouveau2)
 autoplot(nouveau2, which = 1:6)
 car::outlierTest(nouveau2)
@@ -147,7 +143,7 @@ summary(gvlma(nouveau2)) # Assez bien au niveau graphique.
 # summary(gvlma(nouveau21))
 
 #' Qu'est-ce qu'il se passe si on enlève le point 24 au lieu du 12 au début ?
-nouveau3 <- lm(meill2$terms, data = dfAvecObs[-24, ])
+nouveau3 <- lm(meill2$terms, data = dfAvecObs[-c(12, 2, 17), ])
 summary(nouveau3)
 autoplot(nouveau3, which = 1:6)
 car::outlierTest(nouveau3)
@@ -160,7 +156,7 @@ car::outlierTest(nouveau4)
 summary(gvlma(nouveau4))
 # Enlever 24puis 3 peut être une autre option.
 
-#' ## III. Méthode alternative : stepwise directement avec toutes les variables.
+#' ## III. Méthode alternative : stepwise directement avec toutes les variables
 #' On établit d'abord le modèle de départ et le modèle d'arrivé, entre lesquels on cherchera le modèle optimal. On accepte
 #' toutes les variables qui restent après l'opération de recherche de linéarités préliminaire, ainsi que leurs interactions
 #' de second degré.
@@ -255,8 +251,19 @@ which(minimum2 == RSS2, arr.ind = TRUE)
 #+ echo = FALSE
 lad.bestFit <- lad(reponse ~ .^2, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(8, 12, 18)])])
 summary(lad.bestFit)
+oldpar <- par(mfrow = c(1,2))
 plot(lad.bestFit, which = 1:2)
+par(oldpar)
 lad.bestFit2 <- lad(reponse ~ .^2 - descripteur30:descripteur68, data = dfAvecObs[c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(8, 12, 18)])])
 summary(lad.bestFit2)
+oldpar <- par(mfrow = c(1,2))
 plot(lad.bestFit2, which = 1:2)
+par(oldpar)
+
+lad.bestFit3 <- lad(reponse ~ .^2 - descripteur30:descripteur68, data = dfAvecObs[-c(5, 4, 12), c("reponse", as.character(VifEffetsPrincipaux@results$Variables)[c(8, 12, 18)])])
+summary(lad.bestFit3)
+oldpar <- par(mfrow = c(1,2))
+plot(lad.bestFit3, which = 1:2)
+par(oldpar)
+
 #' -------- FIN ----------
