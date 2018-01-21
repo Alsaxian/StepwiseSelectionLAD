@@ -21,6 +21,7 @@ library(caret)
 library(gvlma)
 library(qpcR)
 library(L1pack)
+library(vioplot)
 # library(car)
 # library(tidyverse)
 #+ echo = FALSE, results = "hide"
@@ -28,7 +29,6 @@ dfSansObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/Stepwi
 dfAvecObs <- read_excel("C:/Users/ellie/Documents/R/projetRegressionLyon1/StepwiseSelectionLAD/FW_groupe3_obs.xls")
 names(dfSansObs)[1] <- "rowname"
 names(dfAvecObs)[1] <- "rowname"
-head(dfSansObs)
 #' ## 0. Introduction
 #' In this article we will present four common feature selection techniques in regression problems with the help of some 
 #' chemical reaction data. The data devide into two parts: the first dataset consists of 100 chemical substances with each
@@ -36,10 +36,16 @@ head(dfSansObs)
 #' measurements, apart from the fact that to each of them an additional numeric mark is given, that we will call response.
 #' The response occupies the second column of the second dataset, which looks like below
 #+ message=FALSE, warning=FALSE
-head(dfAvecObs, n = 5L)
+head(dfAvecObs, n = 1L)
 dim(dfSansObs) # dont une colonne est le nom d'observation
 dim(dfAvecObs) # dont une colonne est le nom d'observation
-#' Ici : faire une stat descriptive sur la variable à expliquer  
+summary(dfAvecObs$reponse)
+oldpar = par(mfrow = c(1, 2))
+boxplot(dfAvecObs$reponse, main = "Boxplot de \ntoutes les réponses")
+boxplot(dfAvecObs$reponse[-24], main = "Boxplot des réponses \nsans l'obs 24")
+par(oldpar)
+table(dfAvecObs$descripteur14)
+table(dfSansObs$descripteur14)
 #' The objective of this article, is to predict the response using the 50 descriptors of the chemical substances
 #' of the second dataset. According to the project requirements we shall use linear regression models as a baseline, while
 #' we will try different feature selection methods to avoid overfitting and to keep our model simple to explain. The article 
@@ -60,6 +66,7 @@ dim(dfAvecObs) # dont une colonne est le nom d'observation
 #' Second, we want to try some other feature selection variants than stepwise. In paragraph IV we will run a LAD regression model with 
 #' L-1 errors. In the last paragraph, we will add a Lasso and than an Elastic Net penalty term to the OLS regression model
 #' to make the final coefficients sparse. 
+#'   
 #'   
 #' ## I. Unsupervised stepwise feature selection among main effects using VIF
 #+ echo = FALSE
